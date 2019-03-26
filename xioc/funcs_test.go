@@ -138,6 +138,7 @@ func TestExtractDefangedURLs(t *testing.T) {
 		{"ftp://example[.]com", []string{"ftp://example.com"}},
 		{"invalid://example.com", []string{}},
 		{"https://unit42.paloaltonetworks.com/wp-content/plugins/recaptcha-in-wp-comments-form/js/base.js?ver=9.1.0'></script>", []string{}},
+		{"https://unit42.paloaltonetworks[.]com/wp-content/plugins/recaptcha-in-wp-comments-form/js/base.js?ver=9.1.0'></script>", []string{"https://unit42.paloaltonetworks.com/wp-content/plugins/recaptcha-in-wp-comments-form/js/base.js?ver=9.1.0"}},
 	}
 	for _, tt := range urls {
 		t.Run(tt.input, func(t *testing.T) {

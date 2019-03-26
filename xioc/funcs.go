@@ -206,6 +206,9 @@ func ExtractURLs(text string) []string {
 		url = strings.Replace(url, " ://", "://", -1)
 		url = strings.Replace(url, "[com]", "com", -1)
 
+		url = strings.Split(url, "\"")[0]
+		url = strings.Split(url, "'")[0]
+
 		if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "ftp") {
 			continue
 		}
@@ -239,6 +242,9 @@ func ExtractDefangedURLs(text string) []string {
 		url = strings.Replace(url, ":// ", "://", -1)
 		url = strings.Replace(url, " ://", "://", -1)
 		url = strings.Replace(url, "[com]", "com", -1)
+
+		url = strings.Split(url, "\"")[0]
+		url = strings.Split(url, "'")[0]
 
 		if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "ftp") {
 			continue
