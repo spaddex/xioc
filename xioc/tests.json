@@ -13,6 +13,13 @@
     "ip4s": [],
     "ip6s": []
   },
+  "https://unit42.paloaltonetworks.com/wp-content/plugins/recaptcha-in-wp-comments-form/js/base.js?ver=9.1.0'></script>": {
+    "domains": ["unit42.paloaltonetworks.com"],
+    "urls": ["https://unit42.paloaltonetworks.com/wp-content/plugins/recaptcha-in-wp-comments-form/js/base.js?ver=9.1.0"],
+    "emails": [],
+    "ip4s": [],
+    "ip6s": []
+  },
   "banana[.]com": {
     "domains": ["banana.com"],
     "urls": [],

@@ -120,3 +120,147 @@ func TestExtractHashes(t *testing.T) {
 		}
 	}
 }
+
+func TestExtractDefangedURLs(t *testing.T) {
+	var urls = []struct {
+		input       string
+		expectedOut []string
+	}{
+		{"http://example.com", []string{}},
+		{"http://example[.]com", []string{"http://example.com"}},
+		{"http://example.com/someFile", []string{}},
+		{"http://example[.]com/someFile", []string{"http://example.com/someFile"}},
+		{"http://www15.youtube.com.silssl.com/watch.php?v=o8h2mD8b&c=SG&feature=youtu", []string{}},
+		{"hxxp://example.com", []string{"http://example.com"}},
+		{"hxxp://example[dot]com", []string{"http://example.com"}},
+		{"http://legitURL.com someText hxxp://someMalware[.]com/exeuteme.exe", []string{"http://someMalware.com/exeuteme.exe"}},
+		{"ftp://example.com", []string{}},
+		{"ftp://example[.]com", []string{"ftp://example.com"}},
+		{"invalid://example.com", []string{}},
+		{"https://unit42.paloaltonetworks.com/wp-content/plugins/recaptcha-in-wp-comments-form/js/base.js?ver=9.1.0'></script>", []string{}},
+	}
+	for _, tt := range urls {
+		t.Run(tt.input, func(t *testing.T) {
+			got := ExtractDefangedURLs(tt.input)
+			// iterate over result slice
+			for _, singleOutputURL := range got {
+				if stringInSlice(singleOutputURL, tt.expectedOut) == false {
+					t.Errorf("Found unexpected IOC. Input: %v, Output: %v, was expecting: %v", tt.input, got, tt.expectedOut)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractDefangedDomains(t *testing.T) {
+	var domains = []struct {
+		input       string
+		expectedOut []string
+	}{
+		{"http://example.com", []string{}},
+		{"http://example[.]com", []string{"example.com"}},
+		{"http://example.com/someFile", []string{}},
+		{"http://example[.]com/someFile", []string{"example.com"}},
+		{"http://www15.youtube.com.silssl.com/watch.php?v=o8h2mD8b&c=SG&feature=youtu", []string{}},
+		{"hxxp://example.com", []string{}}, // only schema
+		{"hxxp://example[dot]com", []string{"example.com"}},
+		{"http://legitURL.com someText hxxp://someMalware[.]com/exeuteme.exe", []string{"somemalware.com"}},
+		{"bob@acme.com", []string{}},
+		{"https://unit42.paloaltonetworks.com/wp-content/plugins/recaptcha-in-wp-comments-form/js/base.js?ver=9.1.0'></script>", []string{}},
+	}
+	for _, tt := range domains {
+		t.Run(tt.input, func(t *testing.T) {
+			got := ExtractDefangedDomains(tt.input)
+			// iterate over result slice
+			for _, singleOutputDomain := range got {
+				if stringInSlice(singleOutputDomain, tt.expectedOut) == false {
+					t.Errorf("Found unexpected IOC. Input: %v, Output: %v, was expecting: %v", tt.input, got, tt.expectedOut)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractDefangedEmails(t *testing.T) {
+	var email = []struct {
+		input       string
+		expectedOut []string
+	}{
+		{"someuser@hotmail.com", []string{}},
+		{"someuser at hotmail.com", []string{"someuser@hotmail.com"}},
+		{"someuser[@]hotmail.com", []string{"someuser@hotmail.com"}},
+		{"someuser@hotmail[.]com", []string{"someuser@hotmail.com"}},
+		{"send email to sales AT zimperium dot com", []string{"sales@zimperium.com"}},
+		{"sales@zimperium.com", []string{}},
+		{"user1 at hotmail dot com user2 at hotmail.com", []string{"user1@hotmail.com", "user2@hotmail.com"}},
+	}
+	for _, tt := range email {
+		t.Run(tt.input, func(t *testing.T) {
+			got := ExtractDefangedEmails(tt.input)
+			// iterate over result slice
+			for _, singleOutputEmail := range got {
+				if stringInSlice(singleOutputEmail, tt.expectedOut) == false {
+					t.Errorf("Found unexpected IOC. Input: %v, Output: %v, was expecting: %v", tt.input, got, tt.expectedOut)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractDefangedIPv4s(t *testing.T) {
+	var ips = []struct {
+		input       string
+		expectedOut []string
+	}{
+		{"1.1.1.1", []string{}},
+		{"1[.]1[.]1[.]1", []string{"1.1.1.1"}},
+		{"1 dot 1 dot 1 dot 1", []string{"1.1.1.1"}},
+		{"1.1.1.1000", []string{}},
+		{"root@192.168.11.1", []string{}},
+		{"1(dot)1(dot)1(dot)1", []string{"1.1.1.1"}},
+	}
+	for _, tt := range ips {
+		t.Run(tt.input, func(t *testing.T) {
+			got := ExtractDefangedIPv4s(tt.input)
+			// iterate over result slice
+			for _, singleIP := range got {
+				if stringInSlice(singleIP, tt.expectedOut) == false {
+					t.Errorf("Found unexpected IOC. Input: %v, Output: %v, was expecting: %v", tt.input, got, tt.expectedOut)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractDefangedIPv6s(t *testing.T) {
+	var ips = []struct {
+		input       string
+		expectedOut []string
+	}{
+		{"2001[:]db8[:]0[:]1[:]1[:]1[:]1[:]1", []string{"2001:db8:0:1:1:1:1:1"}},
+		{"2001[:]db8[:]0[:]1[:]1:1:1:1", []string{"2001:db8:0:1:1:1:1:1"}},
+		{"2001:db8:0:1:1:1:1:1", []string{}},
+		{"2001(:)db8(:)0(:)1:1:1:1:1", []string{"2001:db8:0:1:1:1:1:1"}},
+		{"2001 : db8 : 0 : 1:1:1:1:1", []string{"2001:db8:0:1:1:1:1:1"}},
+	}
+	for _, tt := range ips {
+		t.Run(tt.input, func(t *testing.T) {
+			got := ExtractDefangedIPv6s(tt.input)
+			// iterate over result slice
+			for _, singleIP := range got {
+				if stringInSlice(singleIP, tt.expectedOut) == false {
+					t.Errorf("Found unexpected IOC. Input: %v, Output: %v, was expecting: %v", tt.input, got, tt.expectedOut)
+				}
+			}
+		})
+	}
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}

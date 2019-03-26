@@ -24,14 +24,26 @@ func init() {
 }
 
 var dot = `(\.|\p{Z}dot\p{Z}|\p{Z}?(\(dot\)|\[dot\]|\(\.\)|\[\.\]|\{\.\})\p{Z}?)`
+var defangedDot = `(\p{Z}dot\p{Z}|\p{Z}?(\(dot\)|\[dot\]|\(\.\)|\[\.\]|\{\.\})\p{Z}?)`
+
+var defangedDotIPv6 = `(\p{Z}:\p{Z}|\p{Z}?(\(:\)|\[:\])\p{Z}?)`
+
 var dotRegex = regexp.MustCompile(`(?i)` + dot)
+var defangedDotRegex = regexp.MustCompile(`(?i)` + defangedDot)
 
 func replaceDot(s string) string {
 	return dotRegex.ReplaceAllString(s, ".")
 }
 
+func replaceDefangedDot(s string) string {
+	return defangedDotRegex.ReplaceAllString(s, ".")
+}
+
 var at = `(@|\p{Z}at\p{Z}|\p{Z}?(\(at\)|\[at\]|\(@\)|\[@\]|\{@\})\p{Z}?)`
 var atRegex = regexp.MustCompile(`(?i)` + at)
+
+var defangedAt = `(\p{Z}at\p{Z}|\p{Z}?(\(at\)|\[at\]|\(@\)|\[@\]|\{@\})\p{Z}?)`
+var defangedatRegex = regexp.MustCompile(`(?i)` + at)
 
 func replaceAt(s string) string {
 	return atRegex.ReplaceAllString(s, "@")
@@ -67,11 +79,27 @@ func ExtractIPv4s(text string) []string {
 	return filterOnlyValidIPs(ips)
 }
 
+var defangedIP4Regex = regexp.MustCompile(`(?i)([0-9]|` + defangedDot + `)+`)
+
+// ExtractDefangedIPv4s extracts defanged IPv4 addresses
+func ExtractDefangedIPv4s(text string) []string {
+	ips := defangedIP4Regex.FindAllString(text, -1)
+	return filterOnlyValidIPs(ips)
+}
+
 var ip6Regex = regexp.MustCompile(`(?i)[a-f0-9:]+`)
 
 // ExtractIPv6s extracts IPv6 addresses from an input string
 func ExtractIPv6s(text string) []string {
 	ips := ip6Regex.FindAllString(text, -1)
+	return filterOnlyValidIPs(ips)
+}
+
+var defangedIP6Regex = regexp.MustCompile(`(?i)[a-f0-9:]+` + defangedDotIPv6)
+
+// ExtractDefangedIPv6s extracts defanged IPv6 addresses
+func ExtractDefangedIPv6s(text string) []string {
+	ips := defangedIP6Regex.FindAllString(text, -1)
 	return filterOnlyValidIPs(ips)
 }
 
@@ -85,6 +113,46 @@ var emailRegex = regexp.MustCompile(`(?i)\b\S+?` + at + `\S+?` + dot + `\S+\b`)
 // ExtractEmails extracts email addresses from an input string
 func ExtractEmails(text string) []string {
 	emails := emailRegex.FindAllString(text, -1)
+
+	resultSet := map[string]bool{}
+	result := []string{}
+	for _, email := range emails {
+		email = strings.ToLower(email)
+		email = replaceAt(email)
+		email = replaceDot(email)
+
+		e, err := mail.ParseAddress(email)
+		if err != nil {
+			continue
+		}
+
+		email = e.Address
+
+		if resultSet[email] {
+			continue
+		}
+
+		domain := strings.Split(email, "@")[1]
+		isIP := len(filterOnlyValidIPs([]string{domain})) == 1
+
+		if !hasKnownTLD(email) && !isIP {
+			continue
+		}
+
+		if !resultSet[email] {
+			resultSet[email] = true
+			result = append(result, email)
+		}
+	}
+
+	return result
+}
+
+var defangedemailRegex = regexp.MustCompile(`(?i)\b\S+?` + defangedAt + `\S+?` + defangedDot + `\S+\b`)
+
+// ExtractDefangedEmails extracts email addresses which are escapted
+func ExtractDefangedEmails(text string) []string {
+	emails := defangedemailRegex.FindAllString(text, -1)
 
 	resultSet := map[string]bool{}
 	result := []string{}
@@ -153,9 +221,39 @@ func ExtractURLs(text string) []string {
 			result = append(result, url)
 		}
 	}
-
 	return result
+}
 
+var defangedURLRegex = regexp.MustCompile(`(?i)(h...?ps?|ftp)\[?:\]?//\s?\S+` + defangedDot + `\S+`)
+
+// ExtractDefangedURLs only extracts URLs where are escaped
+func ExtractDefangedURLs(text string) []string {
+	urls := defangedURLRegex.FindAllString(text, -1)
+	resultSet := map[string]bool{}
+	result := []string{}
+	for _, url := range urls {
+		url = replaceDefangedDot(url)
+		url = urlHTTPDefangRegex.ReplaceAllString(url, "http")
+		url = strings.Replace(url, "[:]//", "://", -1)
+		url = strings.Replace(url, "[:]//", "://", -1)
+		url = strings.Replace(url, ":// ", "://", -1)
+		url = strings.Replace(url, " ://", "://", -1)
+		url = strings.Replace(url, "[com]", "com", -1)
+
+		if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "ftp") {
+			continue
+		}
+		if !strings.Contains(url, ".") && // check for domain without mutual calls
+			len(ExtractIPv4s(url)) == 0 &&
+			len(ExtractIPv6s(url)) == 0 {
+			continue
+		}
+		if !resultSet[url] {
+			resultSet[url] = true
+			result = append(result, url)
+		}
+	}
+	return result
 }
 
 var domainRegex = regexp.MustCompile(`(?i)([\p{L}\p{N}][\p{L}\p{N}\-]*` + dot + `)+\p{L}{2,}`)
@@ -186,31 +284,61 @@ func ExtractDomains(text string) []string {
 	for _, domain := range domains {
 		domain = strings.ToLower(domain)
 		domain = replaceDot(domain)
-
 		if resultSet[domain] {
 			continue
 		}
-
 		if strings.ContainsAny(domain, `!#$%^&*()+=,@:/'\"[]`+"`") ||
 			strings.Contains(domain, "..") ||
 			strings.Contains(domain, ".-") {
 			continue
 		}
-
 		if net.ParseIP(domain) != nil {
 			continue
 		}
-
 		if !hasKnownTLD(domain) {
 			continue
 		}
-
 		if !resultSet[domain] {
 			resultSet[domain] = true
 			result = append(result, domain)
 		}
 	}
 
+	return result
+}
+
+var defangedDomainRegex = regexp.MustCompile(`(?i)([\p{L}\p{N}][\p{L}\p{N}\-]*` + defangedDot + `)+\p{L}{2,}`)
+
+// ExtractDefangedDomains extracts defanged domain names from an input string
+func ExtractDefangedDomains(text string) []string {
+	domains := []string{}
+
+	domains = append(domains, defangedDomainRegex.FindAllString(text, -1)...)
+
+	resultSet := map[string]bool{}
+	result := []string{}
+	for _, domain := range domains {
+		domain = strings.ToLower(domain)
+		domain = replaceDot(domain)
+		if resultSet[domain] {
+			continue
+		}
+		if strings.ContainsAny(domain, `!#$%^&*()+=,@:/'\"[]`+"`") ||
+			strings.Contains(domain, "..") ||
+			strings.Contains(domain, ".-") {
+			continue
+		}
+		if net.ParseIP(domain) != nil {
+			continue
+		}
+		if !hasKnownTLD(domain) {
+			continue
+		}
+		if !resultSet[domain] {
+			resultSet[domain] = true
+			result = append(result, domain)
+		}
+	}
 	return result
 }
 

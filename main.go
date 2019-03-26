@@ -9,20 +9,25 @@ import (
 	"os"
 	"strings"
 
-	"github.com/assafmo/xioc/xioc"
+	"github.com/spaddex/xioc/xioc"
 )
 
 type extractFunction func(text string) []string
 
 var availableFunctions = map[string]extractFunction{
-	"domain": xioc.ExtractDomains,
-	"email":  xioc.ExtractEmails,
-	"ip4":    xioc.ExtractIPv4s,
-	"ip6":    xioc.ExtractIPv6s,
-	"url":    xioc.ExtractURLs,
-	"md5":    xioc.ExtractMD5s,
-	"sha1":   xioc.ExtractSHA1s,
-	"sha256": xioc.ExtractSHA256s,
+	"domain_all": xioc.ExtractDomains,
+	"domain":     xioc.ExtractDefangedDomains,
+	"email_all":  xioc.ExtractEmails,
+	"email":      xioc.ExtractDefangedEmails,
+	"ip4_all":    xioc.ExtractIPv4s,
+	"ip4":        xioc.ExtractDefangedIPv4s,
+	"ip6_all":    xioc.ExtractIPv6s,
+	"ip6":        xioc.ExtractDefangedIPv6s,
+	"url_all":    xioc.ExtractURLs,
+	"url":        xioc.ExtractDefangedURLs,
+	"md5":        xioc.ExtractMD5s,
+	"sha1":       xioc.ExtractSHA1s,
+	"sha256":     xioc.ExtractSHA256s,
 }
 
 const version = "1.1.11"
@@ -33,13 +38,18 @@ var onlyFlag string
 func init() {
 	flag.BoolVar(&versionFlag, "v", false, "Print version and exit")
 	flag.StringVar(&onlyFlag, "o", "", `Extract only specified types.
-Types must be comma seperated. E.g: xioc -o "ip4,domain,url,md5"
+Types must be comma seperated. E.g: xioc -o "ip4,domain,url,md5". types with "_all" grabs both fanged and defanged strings. 
 Available types:
 	- ip4
+	- ip4_all
 	- ip6
+	- ip6_all
 	- domain
+	- domain_all 
 	- url
+	- url_all
 	- email
+	- email_all
 	- md5
 	- sha1
 	- sha256`)
