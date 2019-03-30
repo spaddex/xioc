@@ -22,7 +22,6 @@ var availableFunctions = map[string]extractFunction{
 	"ip4_all":    xioc.ExtractIPv4s,
 	"ip4":        xioc.ExtractDefangedIPv4s,
 	"ip6_all":    xioc.ExtractIPv6s,
-	"ip6":        xioc.ExtractDefangedIPv6s,
 	"url_all":    xioc.ExtractURLs,
 	"url":        xioc.ExtractDefangedURLs,
 	"md5":        xioc.ExtractMD5s,
@@ -42,7 +41,6 @@ Types must be comma seperated. E.g: xioc -o "ip4,domain,url,md5". types with "_a
 Available types:
 	- ip4
 	- ip4_all
-	- ip6
 	- ip6_all
 	- domain
 	- domain_all 

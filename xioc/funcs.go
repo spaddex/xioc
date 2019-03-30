@@ -97,12 +97,6 @@ func ExtractIPv6s(text string) []string {
 
 var defangedIP6Regex = regexp.MustCompile(`(?i)[a-f0-9:]+` + defangedDotIPv6)
 
-// ExtractDefangedIPv6s extracts defanged IPv6 addresses
-func ExtractDefangedIPv6s(text string) []string {
-	ips := defangedIP6Regex.FindAllString(text, -1)
-	return filterOnlyValidIPs(ips)
-}
-
 func hasKnownTLD(input string) bool {
 	domainParts := strings.Split(input, ".")
 	return KnownTLDs[domainParts[len(domainParts)-1]]
@@ -148,16 +142,59 @@ func ExtractEmails(text string) []string {
 	return result
 }
 
-var defangedemailRegex = regexp.MustCompile(`(?i)\b\S+?` + defangedAt + `\S+?` + defangedDot + `\S+\b`)
-
 // ExtractDefangedEmails extracts email addresses which are escapted
 func ExtractDefangedEmails(text string) []string {
-	emails := defangedemailRegex.FindAllString(text, -1)
+	emails := emailRegex.FindAllString(text, -1) // we don't know what kind of defang to expect, so must use normal dot in case of "example[@]something.com", or "example at something.com" etc
 
 	resultSet := map[string]bool{}
 	result := []string{}
 	for _, email := range emails {
 		email = strings.ToLower(email)
+
+		isDefanged := false
+		// manual defang validation
+		if strings.Contains(email, " at ") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "[@]") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "[at]") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "(@)") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "{at}") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "(at)") == true {
+			isDefanged = true
+		}
+
+		if strings.Contains(email, " dot ") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "[.]") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "[dot]") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "(.)") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "{.}") == true {
+			isDefanged = true
+		}
+		if strings.Contains(email, "(dot)") == true {
+			isDefanged = true
+		}
+
+		if isDefanged == false {
+			continue
+		}
+
 		email = replaceAt(email)
 		email = replaceDot(email)
 
@@ -227,21 +264,49 @@ func ExtractURLs(text string) []string {
 	return result
 }
 
-var defangedURLRegex = regexp.MustCompile(`(?i)(h...?ps?|ftp)\[?:\]?//\s?\S+` + defangedDot + `\S+`)
-
 // ExtractDefangedURLs only extracts URLs where are escaped
 func ExtractDefangedURLs(text string) []string {
-	urls := defangedURLRegex.FindAllString(text, -1)
+	urls := urlRegex.FindAllString(text, -1)
 	resultSet := map[string]bool{}
 	result := []string{}
 	for _, url := range urls {
-		url = replaceDefangedDot(url)
+
+		isDefanged := false
+
+		if strings.Contains(url, " dot ") == true {
+			isDefanged = true
+		}
+		if strings.Contains(url, "[.]") == true {
+			isDefanged = true
+		}
+		if strings.Contains(url, "[dot]") == true {
+			isDefanged = true
+		}
+		if strings.Contains(url, "(.)") == true {
+			isDefanged = true
+		}
+		if strings.Contains(url, "{.}") == true {
+			isDefanged = true
+		}
+		if strings.Contains(url, "(dot)") == true {
+			isDefanged = true
+		}
+		if strings.Contains(url, "hxxp") == true {
+			isDefanged = true
+		}
+
+		if isDefanged == false {
+			continue
+		}
+
+		url = replaceDot(url)
 		url = urlHTTPDefangRegex.ReplaceAllString(url, "http")
 		url = strings.Replace(url, "[:]//", "://", -1)
 		url = strings.Replace(url, "[:]//", "://", -1)
 		url = strings.Replace(url, ":// ", "://", -1)
 		url = strings.Replace(url, " ://", "://", -1)
 		url = strings.Replace(url, "[com]", "com", -1)
+		url = strings.Replace(url, "hxxp", "http", -1)
 
 		url = strings.Split(url, "\"")[0]
 		url = strings.Split(url, "'")[0]
