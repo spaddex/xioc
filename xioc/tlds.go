@@ -144,6 +144,7 @@ var KnownTLDs = map[string]bool{
 	"bing":                     true,
 	"bingo":                    true,
 	"bio":                      true,
+	"bit":                      true,
 	"biz":                      true,
 	"bj":                       true,
 	"black":                    true,
